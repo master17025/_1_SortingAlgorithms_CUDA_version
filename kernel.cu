@@ -53,8 +53,6 @@ void RadixSortAnalysis(int* randomList, int lowerBound, int upperBound)
 
 __global__ void CumulativeSum(int* inputVector, int NumberOfElements)
 {
-    // Allocate shared memory
-    __shared__ int partial_sum[SHMEM_threads];
 
 
     // Calculate global thread ID
@@ -71,7 +69,7 @@ __global__ void CumulativeSum(int* inputVector, int NumberOfElements)
     for (int off = 1; off < NumberOfElements; off*=2)
     {
         if (tx > off)
-            inputVector[tx] += inputVector[tx - off];
+            inputVector[tx - 1] += inputVector[tx - off -1];
 
         __syncthreads();
     }
