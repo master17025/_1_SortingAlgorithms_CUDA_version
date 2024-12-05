@@ -7,7 +7,6 @@
 
 #include <iostream>
 #include <chrono>  // For measuring execution time
-
 // Define the number of elements of the integer array
 int const NumberOfElements = 8; // Example: 450 million elements
 
@@ -65,17 +64,17 @@ __global__ void CumulativeSum(int* inputVector, int NumberOfElements)
 
     int tid = tx + ty * bw;
 
-    __syncthreads();
-
-    int stride = 1;
-
-    // First step: vector[2 * tid + 1] += vector[2 * tid]
-    if (2 * tid + 1 < NumberOfElements) {
-        inputVector[2 * tid + 1] += inputVector[2 * tid];
-    }
-    __syncthreads();
-
     
+
+    int offset = 1;
+
+    for (int off = 1; off < NumberOfElements; off*=2)
+    {
+        if (tx > off)
+            inputVector[tx] += inputVector[tx - off];
+
+        __syncthreads();
+    }
 
 
 }
