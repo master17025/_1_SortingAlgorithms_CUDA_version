@@ -9,7 +9,7 @@
 #include <chrono>  // For measuring execution time
 
 // Define the number of elements of the integer array
-int NumberOfElements = 4.5e8; // Example: 450 million elements
+int NumberOfElements = 10; // Example: 450 million elements
 
 // Function to measure the time and performance of Counting Sort
 void CountingSortAnalysis(int* randomList, int lowerBound, int upperBound)
