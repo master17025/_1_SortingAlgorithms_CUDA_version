@@ -9,7 +9,7 @@
 #include <chrono>  // For measuring execution time
 
 // Define the number of elements of the integer array
-int NumberOfElements = 10; // Example: 450 million elements
+int const NumberOfElements = 8; // Example: 450 million elements
 
 // Function to measure the time and performance of Counting Sort
 void CountingSortAnalysis(int* randomList, int lowerBound, int upperBound)
@@ -49,23 +49,86 @@ void RadixSortAnalysis(int* randomList, int lowerBound, int upperBound)
     std::cout << "Time taken to sort the list using Radix sort: " << duration.count() << " milliseconds" << std::endl;
 }
 
+#define threadsperblock 256
+#define SHMEM_threads 256 * 4
+
+__global__ void CumulativeSum(int* inputVector, int NumberOfElements)
+{
+    // Allocate shared memory
+    __shared__ int partial_sum[SHMEM_threads];
+
+
+    // Calculate global thread ID
+    int tx = threadIdx.x; // Thread id in a 1D block
+    int ty = blockIdx.x;  // Block id in a 1D grid
+    int bw = blockDim.x; // Block width
+
+    int tid = tx + ty * bw;
+
+    __syncthreads();
+
+    int stride = 1;
+
+    // First step: vector[2 * tid + 1] += vector[2 * tid]
+    if (2 * tid + 1 < NumberOfElements) {
+        inputVector[2 * tid + 1] += inputVector[2 * tid];
+    }
+    __syncthreads();
+
+    
+
+
+}
+
 int main()
 {
     // Define the range for the random numbers (e.g., values between 0 and 99)
     int lowerBound = 0;
-    int upperBound = 99;
+    int upperBound = 9;
 
     // Generate a random list of integers of size NumberOfElements
-    int* randomList = CreateRandomArray(NumberOfElements, lowerBound, upperBound);
+    //int* randomList = CreateRandomArray(NumberOfElements, lowerBound, upperBound);
 
+    int h_randomList[NumberOfElements] = { 1, 3, 4, 2, 5, 9, 6, 0 };
+
+    printArray(h_randomList, NumberOfElements);
+    // Allocation size for all vectors
+    size_t bytes = sizeof(int) * NumberOfElements;
+
+    // Device vector pointers
+    int* d_randomList;
+
+    
+
+    // Allocate device memory (GPU)
+    cudaMalloc(&d_randomList, bytes);
+
+    // Copy to device
+    cudaMemcpy(d_randomList, h_randomList, bytes, cudaMemcpyHostToDevice);
+
+    int blocksPerGrid = (NumberOfElements + (threadsperblock - 1)) / threadsperblock;
+
+    // Call kernel
+    CumulativeSum << <blocksPerGrid, threadsperblock >> > (d_randomList,NumberOfElements);
+
+    //CumulativeSum << <1, threadsperblock >> > (d_randomList);
+
+    // copy data from device memory to host memory (CPU to  GPU)
+    cudaMemcpy(h_randomList, d_randomList, bytes, cudaMemcpyDeviceToHost);
+
+    printArray(h_randomList, NumberOfElements);
+
+    /*
+    printArray(randomList, NumberOfElements);
     // Analyze the performance of Counting Sort
     CountingSortAnalysis(randomList, lowerBound, upperBound);
-
+    printArray(randomList, NumberOfElements);
     // Analyze the performance of Radix Sort
-    RadixSortAnalysis(randomList, lowerBound, upperBound);
+    //RadixSortAnalysis(randomList, lowerBound, upperBound)   
+    */
+;
 
     // Free the dynamically allocated randomList array
-    delete[] randomList;
 
     return 0;
 }
