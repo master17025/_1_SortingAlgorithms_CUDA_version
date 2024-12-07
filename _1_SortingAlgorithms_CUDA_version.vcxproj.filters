@@ -15,23 +15,23 @@
     <CudaCompile Include="kernel.cu">
       <Filter>Source Files</Filter>
     </CudaCompile>
+    <CudaCompile Include="CountingSort.cu">
+      <Filter>Ressource Files</Filter>
+    </CudaCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="VectorFunc.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="CountingSort.h">
+    <ClInclude Include="RadixSort.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="RadixSort.h">
+    <ClInclude Include="CountingSort.cuh">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="VectorFunc.cpp">
-      <Filter>Ressource Files</Filter>
-    </ClCompile>
-    <ClCompile Include="CountingSort.cpp">
       <Filter>Ressource Files</Filter>
     </ClCompile>
     <ClCompile Include="RadixSort.cpp">

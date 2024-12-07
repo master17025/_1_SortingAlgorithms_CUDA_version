@@ -1,6 +1,9 @@
-#include "CountingSort.h"
+#include "CountingSort.cuh"
 #include <iostream>
+#include <vector>
 
+#include "cuda_runtime.h"
+#include "device_launch_parameters.h"
 void countingSort(int upperBound, int NumberOfElements, int* inputArray)
 {
     // Step 1: The inputArray has `NumberOfElements` elements to sort,
@@ -37,4 +40,31 @@ void countingSort(int upperBound, int NumberOfElements, int* inputArray)
     // Step 9: Free the dynamically allocated memory.
     delete[] outputArray;
     delete[] countArray;
+}
+
+__global__ void CumulativeSum(int* inputVector, int NumberOfElements) {
+    extern __shared__ int sharedData[];
+
+    int tx = threadIdx.x;
+    int tid = blockIdx.x * blockDim.x + tx;
+
+    if (tid >= NumberOfElements) return;
+
+    // Load data into shared memory
+    sharedData[tx] = inputVector[tid];
+    __syncthreads();
+
+    // Perform cumulative sum in shared memory
+    for (int offset = 1; offset < blockDim.x; offset *= 2) {
+        int temp = 0;
+        if (tx >= offset) {
+            temp = sharedData[tx - offset];
+        }
+        __syncthreads();
+        sharedData[tx] += temp;
+        __syncthreads();
+    }
+
+    // Write results back to global memory
+    inputVector[tid] = sharedData[tx];
 }
