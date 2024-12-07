@@ -1,6 +1,8 @@
 #include "CountingSort.cuh"
 #include <iostream>
-#include <vector>
+#include <chrono>  // For measuring execution time
+
+#include <cub/cub.cuh>
 
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
@@ -68,3 +70,53 @@ __global__ void CumulativeSum(int* inputVector, int NumberOfElements) {
     // Write results back to global memory
     inputVector[tid] = sharedData[tx];
 }
+
+void CumulativeSumCUB(int* randomList, int NumberOfElements) {
+    // Allocate device memory
+    int* d_input;
+    int* d_output;
+    cudaMalloc(&d_input, sizeof(int) * NumberOfElements);
+    cudaMalloc(&d_output, sizeof(int) * NumberOfElements);
+
+
+    // Start the timer to measure execution time
+    auto start = std::chrono::high_resolution_clock::now();
+    // Copy input data to device
+    cudaMemcpy(d_input, randomList, sizeof(int) * NumberOfElements, cudaMemcpyHostToDevice);
+
+    // Temporary storage allocation
+    void* d_temp_storage = nullptr;
+    size_t temp_storage_bytes = 0;
+
+    // Get temporary storage size
+    cub::DeviceScan::InclusiveSum(d_temp_storage, temp_storage_bytes, d_input, d_output, NumberOfElements);
+
+    // Allocate temporary storage
+    cudaMalloc(&d_temp_storage, temp_storage_bytes);
+
+    // Perform cumulative sum
+    cub::DeviceScan::InclusiveSum(d_temp_storage, temp_storage_bytes, d_input, d_output, NumberOfElements);
+
+    // Stop the timer after sorting is complete
+    auto end = std::chrono::high_resolution_clock::now();
+
+
+    // Copy result back to host
+    cudaMemcpy(randomList, d_output, sizeof(int) * NumberOfElements, cudaMemcpyDeviceToHost);
+
+
+    //printArray(randomList, NumberOfElements);
+    // Calculate the time duration in milliseconds
+    std::chrono::duration<double, std::milli> duration = end - start;
+
+    // Output the time taken to sort using Radix Sort
+    std::cout << "Time taken for cumulative sum in cublas: " << duration.count() << " milliseconds" << std::endl;
+
+    // Free memory
+    cudaFree(d_temp_storage);
+    cudaFree(d_input);
+    cudaFree(d_output);
+}
+
+
+

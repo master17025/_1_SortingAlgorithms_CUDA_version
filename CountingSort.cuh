@@ -11,3 +11,5 @@
 void countingSort(int upperBound, int NumberOfElements, int* inputArray);
 
 __global__ void CumulativeSum(int* inputVector, int NumberOfElements);
+
+void CumulativeSumCUB(int* randomList, int NumberOfElements);

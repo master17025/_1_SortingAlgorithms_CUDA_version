@@ -7,8 +7,10 @@
 
 #include <iostream>
 #include <chrono>  // For measuring execution time
+
+#include <cub/cub.cuh>
 // Define the number of elements of the integer array
-int const NumberOfElements = 20; // Example: 450 million elements
+int const NumberOfElements = 1e4; // Example: 450 million elements
 
 // Function to measure the time and performance of Counting Sort
 void CountingSortAnalysis(int* randomList, int lowerBound, int upperBound)
@@ -63,25 +65,25 @@ void CumulativeSumAnalysis(int* randomList, int lowerBound, int upperBound)
     int blocksPerGrid = (NumberOfElements + (threadsperblock - 1)) / threadsperblock;
 
 
-
+    // Start the timer to measure execution time
+    auto start = std::chrono::high_resolution_clock::now();
 
     // Copy to device
     cudaMemcpy(d_randomList, randomList, bytes, cudaMemcpyHostToDevice);
     //printArray(randomList, NumberOfElements);
-    // Start the timer to measure execution time
-    auto start = std::chrono::high_resolution_clock::now();
+
 
 
     // Call kernel
     CumulativeSum << <blocksPerGrid, threadsperblock >> > (d_randomList, NumberOfElements);
 
-    // Stop the timer after sorting is complete
-    auto end = std::chrono::high_resolution_clock::now();
 
 
     // copy data from device memory to host memory (CPU to  GPU)
     cudaMemcpy(randomList, d_randomList, bytes, cudaMemcpyDeviceToHost);
 
+    // Stop the timer after sorting is complete
+    auto end = std::chrono::high_resolution_clock::now();
 
     //printArray(randomList, NumberOfElements);
     // Calculate the time duration in milliseconds
@@ -90,8 +92,6 @@ void CumulativeSumAnalysis(int* randomList, int lowerBound, int upperBound)
     // Output the time taken to sort using Radix Sort
     std::cout << "Time taken for cumulative sum: " << duration.count() << " milliseconds" << std::endl;
 }
-
-
 
 
 
@@ -104,12 +104,16 @@ int main()
     // Generate a random list of integers of size NumberOfElements
     int* h_randomList = CreateRandomArray(NumberOfElements, lowerBound, upperBound);
     
-    CumulativeSumAnalysis(h_randomList, lowerBound, upperBound);
+    //CumulativeSumAnalysis(h_randomList, lowerBound, upperBound);
+
+    CumulativeSumCUB(h_randomList, NumberOfElements);
     
 
     h_randomList = CreateRandomArray(NumberOfElements, lowerBound, upperBound);
     // Allocation size for all vectors
    CountingSortAnalysis(h_randomList, lowerBound, upperBound);
+
+
 
 
     //h_randomList = CreateRandomArray(NumberOfElements, lowerBound, upperBound);
