@@ -1,10 +1,6 @@
 #include "VectorFunc.h"
 
-#include "cuda_runtime.h"
-#include "device_launch_parameters.h"
 
-#include <iostream>
-#include <random>
 
 // Function to print the contents of an integer array
 void printArray(const int* array, int size)

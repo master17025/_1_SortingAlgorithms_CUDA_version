@@ -18,6 +18,9 @@
     <CudaCompile Include="CountingSort.cu">
       <Filter>Ressource Files</Filter>
     </CudaCompile>
+    <CudaCompile Include="RandomGeneration.cu">
+      <Filter>Ressource Files</Filter>
+    </CudaCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="VectorFunc.h">
@@ -27,6 +30,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="CountingSort.cuh">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="RandomGeneration.cuh">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

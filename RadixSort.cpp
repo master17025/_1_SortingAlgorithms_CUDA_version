@@ -1,6 +1,5 @@
 #include "RadixSort.h"
-#include <iostream>
-#include <algorithm> // For std::max_element
+
 
 // Counting sort for radix sort: sorts based on individual digit
 void countingSortRadix(int divider, int NumberOfElements, int* inputArray)
