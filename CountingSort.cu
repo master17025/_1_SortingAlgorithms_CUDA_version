@@ -6,7 +6,7 @@
 
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
-void countingSort(int upperBound, int NumberOfElements, int* inputArray)
+void countingSort(int upperBound, long int NumberOfElements, int* inputArray)
 {
     // Step 1: The inputArray has `NumberOfElements` elements to sort,
     // and `upperBound` specifies the maximum value in the array.
@@ -23,7 +23,7 @@ void countingSort(int upperBound, int NumberOfElements, int* inputArray)
     int* countArray = new int[range]();
 
     // Step 5: Count the occurrences of each element in the inputArray.
-    for (int i = 0; i < NumberOfElements; ++i)
+    for (long int i = 0; i < NumberOfElements; ++i)
         ++countArray[inputArray[i]];
 
     // Step 6: Modify the count array to store cumulative counts.
@@ -31,12 +31,13 @@ void countingSort(int upperBound, int NumberOfElements, int* inputArray)
         countArray[i] += countArray[i - 1];
 
     // Step 7: Place elements from the input array into the output array using the count array.
-    for (int i = NumberOfElements - 1; i >= 0; --i) {
-        outputArray[--countArray[inputArray[i]]] = inputArray[i];
+    for (long int i = NumberOfElements - 1; i >= 0; --i) {
+        int index = --countArray[inputArray[i]];
+        outputArray[index] = inputArray[i];
     }
 
     // Step 8: Transfer the sorted values from the output array back to the input array.
-    for (int i = 0; i < NumberOfElements; ++i)
+    for (long int i = 0; i < NumberOfElements; ++i)
         inputArray[i] = outputArray[i];
 
     // Step 9: Free the dynamically allocated memory.
@@ -44,79 +45,106 @@ void countingSort(int upperBound, int NumberOfElements, int* inputArray)
     delete[] countArray;
 }
 
-__global__ void CumulativeSum(int* inputVector, int NumberOfElements) {
-    extern __shared__ int sharedData[];
 
-    int tx = threadIdx.x;
-    int tid = blockIdx.x * blockDim.x + tx;
+#define threadsperblock 512
 
-    if (tid >= NumberOfElements) return;
-
-    // Load data into shared memory
-    sharedData[tx] = inputVector[tid];
-    __syncthreads();
-
-    // Perform cumulative sum in shared memory
-    for (int offset = 1; offset < blockDim.x; offset *= 2) {
-        int temp = 0;
-        if (tx >= offset) {
-            temp = sharedData[tx - offset];
-        }
-        __syncthreads();
-        sharedData[tx] += temp;
-        __syncthreads();
+// Kernel to initialize an array
+__global__ void InitializeArray(int* array, int size, int value) {
+    long int tid = blockIdx.x * blockDim.x + threadIdx.x;
+    if (tid < size) {
+        array[tid] = value;
     }
-
-    // Write results back to global memory
-    inputVector[tid] = sharedData[tx];
 }
 
-void CumulativeSumCUB(int* randomList, int NumberOfElements) {
+// Kernel to count occurrences of each element
+__global__ void CountOccurrences(int* inputArray, int* countArray, long int NumberOfElements) {
+    long int tid = blockIdx.x * blockDim.x + threadIdx.x;
+    if (tid < NumberOfElements) {
+        atomicAdd(&countArray[inputArray[tid]], 1);
+    }
+}
+
+// Kernel to place elements in the correct position
+__global__ void PlaceElements(int* inputArray, int* outputArray, int* countArray, long int NumberOfElements) {
+    long int tid = blockIdx.x * blockDim.x + threadIdx.x;
+    if (tid < NumberOfElements) {
+        int value = inputArray[tid];
+        int position = atomicSub(&countArray[value], 1) - 1;
+        outputArray[position] = value;
+    }
+}
+
+
+// Kernel to place elements in the correct position
+__global__ void PlaceElements(int* inputArray, int* outputArray, int* countArray, int NumberOfElements) {
+    long int tid = blockIdx.x * blockDim.x + threadIdx.x;
+    if (tid < NumberOfElements) {
+        int value = inputArray[tid];
+        int position = atomicSub(&countArray[value], 1) - 1;
+        outputArray[position] = value;
+    }
+}
+
+// Counting Sort function using CUDA
+void CountingSortGPU(int upperBound, long int NumberOfElements, int* inputArray) {
+    int* d_inputArray;
+    int* d_outputArray;
+    int* d_countArray;
+
+    int range = upperBound + 1;
+
     // Allocate device memory
-    int* d_input;
-    int* d_output;
-    cudaMalloc(&d_input, sizeof(int) * NumberOfElements);
-    cudaMalloc(&d_output, sizeof(int) * NumberOfElements);
+    cudaMalloc(&d_inputArray, sizeof(int) * NumberOfElements);
+    cudaMalloc(&d_outputArray, sizeof(int) * NumberOfElements);
+    cudaMalloc(&d_countArray, sizeof(int) * range);
 
 
-    // Start the timer to measure execution time
-    auto start = std::chrono::high_resolution_clock::now();
+
+
     // Copy input data to device
-    cudaMemcpy(d_input, randomList, sizeof(int) * NumberOfElements, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_inputArray, inputArray, sizeof(int) * NumberOfElements, cudaMemcpyHostToDevice);
 
-    // Temporary storage allocation
+    auto start = std::chrono::high_resolution_clock::now();
+
+    // Initialize the count array on the device
+    int blocksPerGridCount = (range + threadsperblock - 1) / threadsperblock;
+    InitializeArray << <blocksPerGridCount, threadsperblock >> > (d_countArray, range, 0);
+
+    // Count occurrences of each element
+    long int blocksPerGridInput = (NumberOfElements + threadsperblock - 1) / threadsperblock;
+    CountOccurrences << <blocksPerGridInput, threadsperblock >> > (d_inputArray, d_countArray, NumberOfElements);
+
+    // Compute cumulative counts using CUB InclusiveSum
     void* d_temp_storage = nullptr;
     size_t temp_storage_bytes = 0;
 
-    // Get temporary storage size
-    cub::DeviceScan::InclusiveSum(d_temp_storage, temp_storage_bytes, d_input, d_output, NumberOfElements);
+    // Get temporary storage size for CUB InclusiveSum
+    cub::DeviceScan::InclusiveSum(d_temp_storage, temp_storage_bytes, d_countArray, d_countArray, range);
 
     // Allocate temporary storage
     cudaMalloc(&d_temp_storage, temp_storage_bytes);
 
     // Perform cumulative sum
-    cub::DeviceScan::InclusiveSum(d_temp_storage, temp_storage_bytes, d_input, d_output, NumberOfElements);
+    cub::DeviceScan::InclusiveSum(d_temp_storage, temp_storage_bytes, d_countArray, d_countArray, range);
 
-    // Stop the timer after sorting is complete
+    // Place elements in the correct position
+    PlaceElements << <blocksPerGridInput, threadsperblock >> > (d_inputArray, d_outputArray, d_countArray, NumberOfElements);
+
     auto end = std::chrono::high_resolution_clock::now();
-
-
-    // Copy result back to host
-    cudaMemcpy(randomList, d_output, sizeof(int) * NumberOfElements, cudaMemcpyDeviceToHost);
-
-
-    //printArray(randomList, NumberOfElements);
-    // Calculate the time duration in milliseconds
     std::chrono::duration<double, std::milli> duration = end - start;
 
-    // Output the time taken to sort using Radix Sort
-    std::cout << "Time taken for cumulative sum in cublas: " << duration.count() << " milliseconds" << std::endl;
+    // Copy sorted array back to host
+    cudaMemcpy(inputArray, d_outputArray, sizeof(int) * NumberOfElements, cudaMemcpyDeviceToHost);
 
-    // Free memory
+
+
+
+    std::cout << "Time taken to sort using Counting Sort on GPU: " << duration.count() << " ms" << std::endl;
+
+    // Free device memory
     cudaFree(d_temp_storage);
-    cudaFree(d_input);
-    cudaFree(d_output);
+    cudaFree(d_inputArray);
+    cudaFree(d_outputArray);
+    cudaFree(d_countArray);
 }
-
-
 

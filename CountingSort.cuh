@@ -8,8 +8,6 @@
 // The function works by counting the occurrences of each element
 // in a range (determined by the upperBound) and then placing the elements
 // in the correct order in the inputVector.
-void countingSort(int upperBound, int NumberOfElements, int* inputArray);
+void countingSort(int upperBound, long int NumberOfElements, int* inputArray);
 
-__global__ void CumulativeSum(int* inputVector, int NumberOfElements);
-
-void CumulativeSumCUB(int* randomList, int NumberOfElements);
+void CountingSortGPU(int upperBound, long int NumberOfElements, int* inputArray);

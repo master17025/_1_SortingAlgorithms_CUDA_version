@@ -78,17 +78,17 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <CudaCompile Include="CountingSort.cu" />
+    <CudaCompile Include="RadixSort.cu" />
     <CudaCompile Include="RandomGeneration.cu" />
     <CudaCompile Include="kernel.cu" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="CountingSort.cuh" />
+    <ClInclude Include="RadixSort.cuh" />
     <ClInclude Include="RandomGeneration.cuh" />
-    <ClInclude Include="RadixSort.h" />
     <ClInclude Include="VectorFunc.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="RadixSort.cpp" />
     <ClCompile Include="VectorFunc.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

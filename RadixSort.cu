@@ -1,8 +1,8 @@
-#include "RadixSort.h"
+#include "RadixSort.cuh"
 
 
 // Counting sort for radix sort: sorts based on individual digit
-void countingSortRadix(int divider, int NumberOfElements, int* inputArray)
+void countingSortRadix(int divider, unsigned int NumberOfElements, int* inputArray)
 {
     // Step 1: Create an output array to store sorted elements
     int* outputArray = new int[NumberOfElements]();
@@ -14,7 +14,7 @@ void countingSortRadix(int divider, int NumberOfElements, int* inputArray)
     int* countArray = new int[range]();
 
     // Step 4: Count the occurrences of each digit at the current digit place (based on divider)
-    for (int i = 0; i < NumberOfElements; i++)
+    for (unsigned int i = 0; i < NumberOfElements; i++)
     {
         int digit = (inputArray[i] / divider) % range;
         countArray[digit]++;
@@ -27,7 +27,7 @@ void countingSortRadix(int divider, int NumberOfElements, int* inputArray)
     }
 
     // Step 6: Build the output array by placing the elements in sorted order
-    for (int i = NumberOfElements - 1; i >= 0; i--)
+    for (unsigned int i = NumberOfElements - 1; i >= 0; i--)
     {
         int digit = (inputArray[i] / divider) % range;
         outputArray[countArray[digit] - 1] = inputArray[i];
@@ -35,7 +35,7 @@ void countingSortRadix(int divider, int NumberOfElements, int* inputArray)
     }
 
     // Step 7: Copy the sorted values from the output array back into the original input array
-    for (int i = 0; i < NumberOfElements; i++)
+    for (unsigned int i = 0; i < NumberOfElements; i++)
     {
         inputArray[i] = outputArray[i];
     }
@@ -46,7 +46,7 @@ void countingSortRadix(int divider, int NumberOfElements, int* inputArray)
 }
 
 // Main radix sort function: sorts the entire array
-void RadixSort(int NumberOfElements, int* inputArray)
+void RadixSort(unsigned int NumberOfElements, int* inputArray)
 {
     // Find the maximum element in the input array to determine the number of digits
     int maximum = *std::max_element(inputArray, inputArray + NumberOfElements);
