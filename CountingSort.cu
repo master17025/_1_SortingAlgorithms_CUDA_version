@@ -46,7 +46,7 @@ void countingSort(int upperBound, long int NumberOfElements, int* inputArray)
 }
 
 
-#define threadsperblock 512
+#define threadsperblock 1024
 
 // Kernel to initialize an array
 __global__ void InitializeArray(int* array, int size, int value) {
@@ -68,8 +68,8 @@ __global__ void CountOccurrences(int* inputArray, int* countArray, long int Numb
 __global__ void PlaceElements(int* inputArray, int* outputArray, int* countArray, long int NumberOfElements) {
     long int tid = blockIdx.x * blockDim.x + threadIdx.x;
     if (tid < NumberOfElements) {
-        int value = inputArray[tid];
-        int position = atomicSub(&countArray[value], 1) - 1;
+        long int value = inputArray[tid];
+        long int position = atomicSub(&countArray[value], 1) - 1;
         outputArray[position] = value;
     }
 }
@@ -79,8 +79,8 @@ __global__ void PlaceElements(int* inputArray, int* outputArray, int* countArray
 __global__ void PlaceElements(int* inputArray, int* outputArray, int* countArray, int NumberOfElements) {
     long int tid = blockIdx.x * blockDim.x + threadIdx.x;
     if (tid < NumberOfElements) {
-        int value = inputArray[tid];
-        int position = atomicSub(&countArray[value], 1) - 1;
+        long int value = inputArray[tid];
+        long int position = atomicSub(&countArray[value], 1) - 1;
         outputArray[position] = value;
     }
 }
@@ -130,12 +130,12 @@ void CountingSortGPU(int upperBound, long int NumberOfElements, int* inputArray)
     // Place elements in the correct position
     PlaceElements << <blocksPerGridInput, threadsperblock >> > (d_inputArray, d_outputArray, d_countArray, NumberOfElements);
 
-    auto end = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double, std::milli> duration = end - start;
+
 
     // Copy sorted array back to host
     cudaMemcpy(inputArray, d_outputArray, sizeof(int) * NumberOfElements, cudaMemcpyDeviceToHost);
-
+    auto end = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double, std::milli> duration = end - start;
 
 
 

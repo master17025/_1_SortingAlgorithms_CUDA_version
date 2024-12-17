@@ -35,25 +35,38 @@ void RadixSortAnalysis(int* randomList, int lowerBound, int upperBound, long int
 int main() {
 
     // Define the number of elements of the integer array
-    long int NumberOfElements = 20e8; // Example: 450 million elements
+    long int NumberOfElements = 1e8; 
 
     int lowerBound = 1;
-    int upperBound = 9;
+    int upperBound = 99;
      
     // Generate random array on GPU
     int* h_randomList = CreateRandomArray(NumberOfElements, lowerBound, upperBound);
 
-    // Perform analysis
-
-    CountingSortAnalysis(h_randomList, lowerBound, upperBound,NumberOfElements);
-
-    //RadixSortAnalysis(h_randomList, lowerBound, upperBound,NumberOfElements);
-
-    CountingSortGPU(upperBound, NumberOfElements, h_randomList);
+    RadixSortGPU(h_randomList, NumberOfElements);
 
     // Assertion to verify the array is sorted
     for (long int i = 1; i < NumberOfElements; ++i) {
-        assert(inputArray[i - 1] <= inputArray[i] && "Array is not sorted!");
+        if (!(h_randomList[i - 1] <= h_randomList[i]))
+        {
+            std::cerr << "Array is not sorted correctly!" << std::endl;
+            return -1;
+        }
+    }
+
+    std::cout << "Array is sorted correctly!" << std::endl;
+
+    //h_randomList = CreateRandomArray(NumberOfElements, lowerBound, upperBound);
+
+    RadixSortAnalysis(h_randomList,lowerBound,  upperBound, NumberOfElements);
+
+    // Assertion to verify the array is sorted
+    for (long int i = 1; i < NumberOfElements; ++i) {
+        if (!(h_randomList[i - 1] <= h_randomList[i]))
+        {
+            std::cerr << "Array is not sorted correctly!" << std::endl;
+            return -1;
+        }
     }
 
     std::cout << "Array is sorted correctly!" << std::endl;
