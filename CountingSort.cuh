@@ -8,6 +8,6 @@
 // The function works by counting the occurrences of each element
 // in a range (determined by the upperBound) and then placing the elements
 // in the correct order in the inputVector.
-void countingSort(int upperBound, long int NumberOfElements, int* inputArray);
+void countingSort(int upperBound, long int NumberOfElements, std::vector<int>& inputArray);
 
-void CountingSortGPU(int upperBound, long int NumberOfElements, int* inputArray);
+void CountingSortGPU(int upperBound, const std::vector<int>& inputVector, std::vector<int>& outputVector);

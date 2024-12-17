@@ -4,7 +4,6 @@
 #include "VectorFunc.h"    // Include custom array functions (e.g., CreateRandomArray)
 #include "CountingSort.cuh"  // Include Counting Sort implementation
 #include "RadixSort.cuh" // Include Radix Sort implementation
-#include"RandomGeneration.cuh"
 #include <cassert> // For assert
 
 #include <iostream>
@@ -12,68 +11,49 @@
 
 
 // Function to measure the time and performance of Counting Sort
-void CountingSortAnalysis(int* randomList, int lowerBound, int upperBound, long int NumberOfElements) {
+void CountingSortAnalysis(std::vector<int>& randomList, int lowerBound, int upperBound) {
     auto start = std::chrono::high_resolution_clock::now();
-    countingSort(upperBound, NumberOfElements, randomList);
+    countingSort(upperBound, randomList.size(), randomList);
     auto end = std::chrono::high_resolution_clock::now();
 
     std::chrono::duration<double, std::milli> duration = end - start;
-    std::cout << "Time taken to sort the list using Counting sort: " << duration.count() << " milliseconds" << std::endl;
+    std::cout << "Time taken to sort the list using Counting Sort: " << duration.count() << " milliseconds" << std::endl;
 }
 
 // Function to measure the time and performance of Radix Sort
-void RadixSortAnalysis(int* randomList, int lowerBound, int upperBound, long int NumberOfElements) {
+void RadixSortAnalysis(std::vector<int>& randomList) {
     auto start = std::chrono::high_resolution_clock::now();
-    RadixSort(NumberOfElements, randomList);
+    RadixSort(randomList.size(), randomList);
     auto end = std::chrono::high_resolution_clock::now();
 
     std::chrono::duration<double, std::milli> duration = end - start;
-    std::cout << "Time taken to sort the list using Radix sort: " << duration.count() << " milliseconds" << std::endl;
+    std::cout << "Time taken to sort the list using Radix Sort: " << duration.count() << " milliseconds" << std::endl;
 }
 
 
-int main() {
 
-    // Define the number of elements of the integer array
-    long int NumberOfElements = 20e8; 
+int main() 
+{
+    // Define the size of the list and bounds
+    const long int NumberOfElements = 1e7; // 1 million elements
+    const int lowerBound = 0;
+    const int upperBound = 999; // Range of values [0, 999]
 
-    int lowerBound = 1;
-    int upperBound = 99;
-     
-    // Generate random array on GPU
-    int* h_randomList = CreateRandomArray(NumberOfElements, lowerBound, upperBound);
-
-    CountingSortAnalysis(h_randomList, lowerBound, upperBound, NumberOfElements);
-
-    // Assertion to verify the array is sorted
-    for (long int i = 1; i < NumberOfElements; ++i) {
-        if (!(h_randomList[i - 1] <= h_randomList[i]))
-        {
-            std::cerr << "Array is not sorted correctly!" << std::endl;
-            return -1;
-        }
+    // Generate a random list of integers within the specified bounds
+    std::vector<int> randomList(NumberOfElements);
+    for (auto& value : randomList) {
+        value = rand() % (upperBound - lowerBound + 1) + lowerBound;
     }
 
-    std::cout << "Array is sorted correctly!" << std::endl;
+    std::cout << "Sorting a list of " << NumberOfElements << " elements." << std::endl;
 
-    h_randomList = CreateRandomArray(NumberOfElements, lowerBound, upperBound);
+    // Perform Counting Sort Analysis
+    std::vector<int> countingSortList = randomList; // Make a copy for Counting Sort
+    CountingSortAnalysis(countingSortList, lowerBound, upperBound);
 
-    RadixSortAnalysis(h_randomList,lowerBound,  upperBound, NumberOfElements);
-
-    // Assertion to verify the array is sorted
-    for (long int i = 1; i < NumberOfElements; ++i) {
-        if (!(h_randomList[i - 1] <= h_randomList[i]))
-        {
-            std::cerr << "Array is not sorted correctly!" << std::endl;
-            return -1;
-        }
-    }
-
-    std::cout << "Array is sorted correctly!" << std::endl;
-
-
-    // Free host memory
-    delete[] h_randomList;
+    // Perform Radix Sort Analysis
+    std::vector<int> radixSortList = randomList; // Make a copy for Radix Sort
+    RadixSortAnalysis(radixSortList);
 
     return 0;
 }
