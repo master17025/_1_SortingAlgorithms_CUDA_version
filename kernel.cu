@@ -35,7 +35,7 @@ void RadixSortAnalysis(int* randomList, int lowerBound, int upperBound, long int
 int main() {
 
     // Define the number of elements of the integer array
-    long int NumberOfElements = 1e8; 
+    long int NumberOfElements = 20e8; 
 
     int lowerBound = 1;
     int upperBound = 99;
@@ -56,7 +56,7 @@ int main() {
 
     std::cout << "Array is sorted correctly!" << std::endl;
 
-    //h_randomList = CreateRandomArray(NumberOfElements, lowerBound, upperBound);
+    h_randomList = CreateRandomArray(NumberOfElements, lowerBound, upperBound);
 
     RadixSortAnalysis(h_randomList,lowerBound,  upperBound, NumberOfElements);
 
