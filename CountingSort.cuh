@@ -10,4 +10,4 @@
 // in the correct order in the inputVector.
 void countingSort(int upperBound, long int NumberOfElements, std::vector<int>& inputArray);
 
-void CountingSortGPU(int upperBound, const std::vector<int>& inputVector, std::vector<int>& outputVector);
+void CountingSortGPU(std::vector<int>& h_input, int upperBound);

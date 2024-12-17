@@ -3,12 +3,13 @@
 #include <iostream>
 #include <chrono>  // For measuring execution time
 
-#include <cub/cub.cuh>
-
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
 // Counting sort for radix sort: sorts based on individual digit
 #include <vector>
+#include <thrust/device_vector.h>
+#include <thrust/execution_policy.h>
+#include <thrust/scan.h>
 
 void countingSortRadix(int divider, long int NumberOfElements, std::vector<int>& inputVector)
 {
@@ -60,84 +61,85 @@ void RadixSort(long int NumberOfElements, std::vector<int>& inputVector)
     }
 }
 
-#define threadsperblock 1024
+#define THREADS_PER_BLOCK 1024
 
-// Kernel to count the occurrences of digits
-__global__ void CountDigitsKernel(const int* input, int* count, int size, int divider, int range) {
-    int tid = blockIdx.x * blockDim.x + threadIdx.x;
-    if (tid < size) {
-        int digit = (input[tid] / divider) % range;
-        atomicAdd(&count[digit], 1); // Atomic increment to avoid race conditions
+// CUDA kernel to calculate digit frequencies
+__global__ void countingKernel(int* input, int* count, int n, int divider) {
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx < n) {
+        int digit = (input[idx] / divider) % 10;
+        atomicAdd(&count[digit], 1);  // Atomic addition to ensure thread safety
     }
 }
 
-// Kernel to place sorted elements in the output array
-__global__ void PlaceElementsKernel(const int* input, int* output, int* count, int size, int divider, int range) {
-    int tid = blockIdx.x * blockDim.x + threadIdx.x;
-    if (tid < size) {
-        int digit = (input[tid] / divider) % range;
-        int position = atomicSub(&count[digit], 1) - 1;
-        output[position] = input[tid];
+// CUDA kernel to place elements into the output array
+__global__ void outputKernel(int* input, int* output, int* count, int* prefixSum, int n, int divider) {
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx < n) {
+        int digit = (input[idx] / divider) % 10;
+        int pos = atomicAdd(&prefixSum[digit], 1);
+        output[pos] = input[idx];
     }
 }
 
-// Main Radix Sort function on GPU using std::vector<int>
-void RadixSortGPU(std::vector<int>& h_input) {
-    const int range = 10; // Decimal range (0-9)
-    int size = h_input.size();
 
-    // GPU memory pointers
+
+// Host function for radix sort
+void RadixSortGPU(std::vector<int>& inputVector) {
+    int n = inputVector.size();
     int* d_input, * d_output, * d_count;
 
-    // Allocate memory on the GPU
-    cudaMalloc(&d_input, size * sizeof(int));
-    cudaMalloc(&d_output, size * sizeof(int));
-    cudaMalloc(&d_count, range * sizeof(int));
+    // Step 1: Allocate memory on the GPU
+    cudaMalloc(&d_input, n * sizeof(int));
+    cudaMalloc(&d_output, n * sizeof(int));
+    cudaMalloc(&d_count, 10 * sizeof(int));
 
-    // Find the maximum element to determine the number of digits
-    int maxElement = *std::max_element(h_input.begin(), h_input.end());
-
-    // Copy the input vector to the device
-    cudaMemcpy(d_input, h_input.data(), size * sizeof(int), cudaMemcpyHostToDevice);
+    // Copy input data to GPU
+    cudaMemcpy(d_input, inputVector.data(), n * sizeof(int), cudaMemcpyHostToDevice);
 
     auto start = std::chrono::high_resolution_clock::now();
 
-    // Loop over each digit place (1s, 10s, 100s, etc.)
-    for (int divider = 1; maxElement / divider > 0; divider *= 10) {
+    int maxValue = *std::max_element(inputVector.begin(), inputVector.end());
 
-        // Initialize count array to zero
-        cudaMemset(d_count, 0, range * sizeof(int));
+    for (int divider = 1; maxValue / divider > 0; divider *= 10) {
+        // Step 2: Reset count array to 0
+        cudaMemset(d_count, 0, 10 * sizeof(int));
 
-        // Count digit occurrences in parallel
-        int blocks = (size + threadsperblock - 1) / threadsperblock;
-        CountDigitsKernel << <blocks, threadsperblock >> > (d_input, d_count, size, divider, range);
+        // Step 3: Launch counting kernel
+        int blockSize = 256;
+        int gridSize = (n + blockSize - 1) / blockSize;
+        countingKernel << <gridSize, blockSize >> > (d_input, d_count, n, divider);
         cudaDeviceSynchronize();
 
-        // Compute cumulative sums on the host
-        std::vector<int> h_count(range, 0);
-        cudaMemcpy(h_count.data(), d_count, range * sizeof(int), cudaMemcpyDeviceToHost);
-        for (int i = 1; i < range; i++) {
-            h_count[i] += h_count[i - 1];
-        }
-        cudaMemcpy(d_count, h_count.data(), range * sizeof(int), cudaMemcpyHostToDevice);
+        // Step 4: Use Thrust for prefix sum (exclusive scan)
+        thrust::device_vector<int> d_countVector(10);
+        thrust::device_vector<int> d_prefixSum(10);
 
-        // Place elements into the output array in parallel
-        PlaceElementsKernel << <blocks, threadsperblock >> > (d_input, d_output, d_count, size, divider, range);
+        // Copy count data to thrust device vector
+        cudaMemcpy(thrust::raw_pointer_cast(d_countVector.data()), d_count, 10 * sizeof(int), cudaMemcpyDeviceToDevice);
+
+        // Compute prefix sums using exclusive scan
+        thrust::exclusive_scan(thrust::device, d_countVector.begin(), d_countVector.end(), d_prefixSum.begin());
+
+        // Step 5: Place elements into output array
+        cudaMemset(d_output, 0, n * sizeof(int));
+        outputKernel << <gridSize, blockSize >> > (d_input, d_output, thrust::raw_pointer_cast(d_countVector.data()),
+            thrust::raw_pointer_cast(d_prefixSum.data()), n, divider);
         cudaDeviceSynchronize();
 
-        // Swap pointers to prepare for the next iteration
-        std::swap(d_input, d_output);
+        // Step 6: Copy output back to input for next iteration
+        cudaMemcpy(d_input, d_output, n * sizeof(int), cudaMemcpyDeviceToDevice);
     }
 
     auto end = std::chrono::high_resolution_clock::now();
 
-    // Copier les résultats triés vers l'hôte
-    cudaMemcpy(h_input.data(), d_input, size * sizeof(int), cudaMemcpyDeviceToHost);
-
     std::chrono::duration<double, std::milli> duration = end - start;
     std::cout << "GPU Radix Sort Time: " << duration.count() << " ms" << std::endl;
 
-    // Libérer la mémoire GPU
+    // Copy the sorted result back to the CPU
+    cudaMemcpy(inputVector.data(), d_output, n * sizeof(int), cudaMemcpyDeviceToHost);
+
+    // Free GPU memory
     cudaFree(d_input);
     cudaFree(d_output);
     cudaFree(d_count);

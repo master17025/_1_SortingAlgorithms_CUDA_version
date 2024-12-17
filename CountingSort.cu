@@ -1,11 +1,16 @@
 #include "CountingSort.cuh"
-#include <iostream>
-#include <chrono>  // For measuring execution time
-#include <vector>
-#include <cub/cub.cuh>
 
-#include "cuda_runtime.h"
-#include "device_launch_parameters.h"
+#include <cuda_runtime.h>
+#include <thrust/device_vector.h>
+#include <thrust/scan.h>
+#include <thrust/sort.h>
+#include <thrust/transform.h>
+#include <thrust/scatter.h>
+#include <thrust/execution_policy.h>
+#include <vector>
+#include <chrono>
+#include <iostream>
+
 void countingSort(int upperBound, long int NumberOfElements, std::vector<int>& inputArray)
 {
     // Step 1: Define the range of possible values.
@@ -37,7 +42,7 @@ void countingSort(int upperBound, long int NumberOfElements, std::vector<int>& i
     inputArray = outputArray;
 }
 
-#define threadsperblock 1024
+#define THREADS_PER_BLOCK  1024
 
 // Kernel to initialize an array
 __global__ void InitializeVector(int* vector, int size, int value) {
@@ -47,83 +52,67 @@ __global__ void InitializeVector(int* vector, int size, int value) {
     }
 }
 
-// Kernel to count occurrences of each element
-__global__ void CountOccurrences(const int* inputVector, int* countVector, long int NumberOfElements) {
-    long int tid = blockIdx.x * blockDim.x + threadIdx.x;
-    if (tid < NumberOfElements) {
-        atomicAdd(&countVector[inputVector[tid]], 1);
+// Kernel to count occurrences of digits (single-pass for Counting Sort)
+__global__ void CountDigitsKernel(const int* input, int* count, int size, int range) {
+    int tid = blockIdx.x * blockDim.x + threadIdx.x;
+    if (tid < size) {
+        int digit = input[tid] % range; // Only single-digit range
+        atomicAdd(&count[digit], 1);
     }
 }
 
-
-// Kernel to place elements in the correct position
-__global__ void PlaceElements(const int* inputVector, int* outputVector, int* countVector, long int NumberOfElements) {
-    long int tid = blockIdx.x * blockDim.x + threadIdx.x;
-    if (tid < NumberOfElements) {
-        int value = inputVector[tid];
-        int position = atomicSub(&countVector[value], 1) - 1;
-        outputVector[position] = value;
+// Kernel to place elements in sorted positions
+__global__ void PlaceElementsKernel(const int* input, int* output, int* count, int size, int range) {
+    int tid = blockIdx.x * blockDim.x + threadIdx.x;
+    if (tid < size) {
+        int digit = input[tid] % range; // Only single-digit range
+        int position = atomicSub(&count[digit], 1) - 1;
+        output[position] = input[tid];
     }
 }
+// Single-pass Counting Sort function on GPU
+void CountingSortGPU(std::vector<int>& h_input, int upperBound) {
+    const int range = upperBound + 1; // Range of values [0, upperBound]
+    int size = h_input.size();
+
+    // GPU memory pointers
+    int* d_input, * d_output;
+    cudaMalloc(&d_input, size * sizeof(int));
+    cudaMalloc(&d_output, size * sizeof(int));
+
+    // Thrust device vector for count array
+    thrust::device_vector<int> d_count(range, 0);
+
+    
+
+    // Copy the input vector to the GPU
+    cudaMemcpy(d_input, h_input.data(), size * sizeof(int), cudaMemcpyHostToDevice);
 
 
-// Counting Sort function using CUDA
-
-// Optimized Counting Sort function using CUDA
-void CountingSortGPU(int upperBound, const std::vector<int>& inputVector, std::vector<int>& outputVector) {
-    long int NumberOfElements = inputVector.size();
-    int range = upperBound + 1;
-
-    // Pre-allocate device memory
-    int* d_inputVector = nullptr;
-    int* d_outputVector = nullptr;
-    int* d_countVector = nullptr;
-    void* d_temp_storage = nullptr;
-    size_t temp_storage_bytes = 0;
-
-    cudaMalloc(&d_inputVector, sizeof(int) * NumberOfElements);
-    cudaMalloc(&d_outputVector, sizeof(int) * NumberOfElements);
-    cudaMalloc(&d_countVector, sizeof(int) * range);
-
-    // Prepare CUB temporary storage size
-    cub::DeviceScan::InclusiveSum(nullptr, temp_storage_bytes, d_countVector, d_countVector, range);
-    cudaMalloc(&d_temp_storage, temp_storage_bytes);
-
-    // Start timing **after pre-allocation**
     auto start = std::chrono::high_resolution_clock::now();
-    // Copy input data to the device once
-    cudaMemcpy(d_inputVector, inputVector.data(), sizeof(int) * NumberOfElements, cudaMemcpyHostToDevice);
+    // Step 1: Count occurrences of each element
+    int blocks = (size + THREADS_PER_BLOCK - 1) / THREADS_PER_BLOCK;
+    CountDigitsKernel << <blocks, THREADS_PER_BLOCK >> > (d_input, thrust::raw_pointer_cast(d_count.data()), size, range);
+    cudaDeviceSynchronize();
 
+    // Step 2: Compute cumulative sums using Thrust inclusive scan
+    thrust::inclusive_scan(d_count.begin(), d_count.end(), d_count.begin());
 
+    // Step 3: Place elements into the output array
+    PlaceElementsKernel << <blocks, THREADS_PER_BLOCK >> > (d_input, d_output, thrust::raw_pointer_cast(d_count.data()), size, range);
+    cudaDeviceSynchronize();
 
-    // Step 1: Initialize count array to zero
-    int blocksPerGridCount = (range + threadsperblock - 1) / threadsperblock;
-    InitializeVector << <blocksPerGridCount, threadsperblock >> > (d_countVector, range, 0);
-
-    // Step 2: Count occurrences
-    long int blocksPerGridInput = (NumberOfElements + threadsperblock - 1) / threadsperblock;
-    CountOccurrences << <blocksPerGridInput, threadsperblock >> > (d_inputVector, d_countVector, NumberOfElements);
-
-    // Step 3: Compute cumulative counts using CUB InclusiveSum
-    cub::DeviceScan::InclusiveSum(d_temp_storage, temp_storage_bytes, d_countVector, d_countVector, range);
-
-    // Step 4: Place elements into the output array
-    PlaceElements << <blocksPerGridInput, threadsperblock >> > (d_inputVector, d_outputVector, d_countVector, NumberOfElements);
-
-    // Step 5: Copy the sorted data back to the host
-    cudaMemcpy(outputVector.data(), d_outputVector, sizeof(int) * NumberOfElements, cudaMemcpyDeviceToHost);
-
-    // End timing
     auto end = std::chrono::high_resolution_clock::now();
+
+
+    // Copy sorted data back to the host
+    cudaMemcpy(h_input.data(), d_output, size * sizeof(int), cudaMemcpyDeviceToHost);
+
+    
     std::chrono::duration<double, std::milli> duration = end - start;
+    std::cout << "GPU Counting Sort Time: " << duration.count() << " ms" << std::endl;
 
-    std::cout << "Time taken to sort using Counting Sort on GPU: " << duration.count() << " ms" << std::endl;
-
-
-    // Free pre-allocated device memory
-    cudaFree(d_temp_storage);
-    cudaFree(d_inputVector);
-    cudaFree(d_outputVector);
-    cudaFree(d_countVector);
+    // Free GPU memory
+    cudaFree(d_input);
+    cudaFree(d_output);
 }
-

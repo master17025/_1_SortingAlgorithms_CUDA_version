@@ -44,9 +44,9 @@ bool isSorted(const std::vector<int>& vec) {
 
 int main() {
     // Define the size of the list and bounds
-    const long int NumberOfElements = 1 << 24; // 1 million elements
+    const long int NumberOfElements = 1 << 4; // 1 million elements
     const int lowerBound = 0;
-    const int upperBound = 9; // Range of values [0, 999]
+    const int upperBound = 17; // Range of values [0, 999]
 
     // Generate a random list of integers
     std::vector<int> randomList(NumberOfElements);
@@ -71,7 +71,7 @@ int main() {
     // GPU Counting Sort
     printf("------------------------\n");
     std::vector<int> countingSortGPUList = randomList;
-    CountingSortGPU(upperBound, countingSortGPUList, countingSortGPUList);
+    CountingSortGPU(countingSortGPUList, upperBound);
 
     // Check if the vector is sorted
     if (isSorted(countingSortGPUList))
@@ -79,10 +79,12 @@ int main() {
 
     else
         std::cerr << "Error: Array not sorted correctly!" << std::endl;
+
     printf("------------------------\n");
     // CPU Radix Sort
     printf("------------------------\n");
     std::vector<int> radixSortList = randomList;
+
     RadixSortAnalysis(radixSortList);
 
     // Check if the vector is sorted
@@ -95,7 +97,9 @@ int main() {
     // GPU Radix Sort
     printf("------------------------\n");
     std::vector<int> radixSortGPUList = randomList;
+    printVector(radixSortGPUList);
     RadixSortGPU(radixSortGPUList);
+    
 
     // Check if the vector is sorted
     if (isSorted(radixSortGPUList))
@@ -105,6 +109,8 @@ int main() {
         std::cerr << "Error: Array not sorted correctly!" << std::endl;
 
     printf("------------------------\n");
+    printVector(radixSortGPUList);
 
     return 0;
 }
+//printVector(const std::vector<int>& vec)
