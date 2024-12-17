@@ -1,7 +1,7 @@
 #pragma once
 #include <iostream>
 #include <vector>
-
+#include<chrono>
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
 // Function to perform Counting Sort on the input array
@@ -10,4 +10,4 @@
 // in the correct order in the inputVector.
 void countingSort(int upperBound, long int NumberOfElements, std::vector<int>& inputArray);
 
-void CountingSortGPU(std::vector<int>& h_input, int upperBound);
+std::chrono::duration<double, std::milli> CountingSortGPU(std::vector<int>& h_input, int upperBound);

@@ -1,36 +1,14 @@
 ﻿#include "cuda_runtime.h"
 #include "device_launch_parameters.h"
 
-#include "VectorFunc.h"      // Include custom vector functions
-#include "CountingSort.cuh"  // Include CPU Counting Sort implementation
-#include "RadixSort.cuh"     // Include CPU Radix Sort implementation
-#include "CountingSort.cuh" // GPU Counting Sort
-#include "RadixSort.cuh"    // GPU Radix Sort
+#include "VectorFunc.h"      // Custom vector functions
+#include "CountingSort.cuh"  // CPU Counting Sort implementation
+#include "RadixSort.cuh"     // CPU Radix Sort implementation
 
 #include <iostream>
 #include <vector>
-#include <chrono>  // For measuring execution time
-#include <cassert> // For assert
-
-// Function to measure the performance of CPU Counting Sort
-void CountingSortAnalysis(std::vector<int>& randomList, int upperBound) {
-    auto start = std::chrono::high_resolution_clock::now();
-    countingSort(upperBound, randomList.size(), randomList);
-    auto end = std::chrono::high_resolution_clock::now();
-
-    std::chrono::duration<double, std::milli> duration = end - start;
-    std::cout << "Time taken by CPU Counting Sort: " << duration.count() << " ms" << std::endl;
-}
-
-// Function to measure the performance of CPU Radix Sort
-void RadixSortAnalysis(std::vector<int>& randomList) {
-    auto start = std::chrono::high_resolution_clock::now();
-    RadixSort(randomList.size(), randomList);
-    auto end = std::chrono::high_resolution_clock::now();
-
-    std::chrono::duration<double, std::milli> duration = end - start;
-    std::cout << "Time taken by CPU Radix Sort: " << duration.count() << " ms" << std::endl;
-}
+#include <chrono>
+#include <cassert>
 
 // Function to check if the vector is sorted
 bool isSorted(const std::vector<int>& vec) {
@@ -42,11 +20,75 @@ bool isSorted(const std::vector<int>& vec) {
     return true; // The vector is sorted
 }
 
+// Function to compare CPU and GPU Counting Sort
+void CompareCountingSort(const std::vector<int>& inputList, int upperBound) {
+    std::vector<int> cpuList = inputList;
+    std::vector<int> gpuList = inputList;
+
+    // CPU Counting Sort
+    auto startCPU = std::chrono::high_resolution_clock::now();
+    countingSort(upperBound, cpuList.size(), cpuList);
+    auto endCPU = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double, std::milli> durationCPU = endCPU - startCPU;
+
+    // GPU Counting Sort
+    printVector(gpuList);
+    std::chrono::duration<double, std::milli> durationGPU  = CountingSortGPU(gpuList, upperBound);
+
+
+    // Compare Results
+    std::cout << "CPU Counting Sort Time: " << durationCPU.count() << " ms" << std::endl;
+    std::cout << "GPU Counting Sort Time: " << durationGPU.count() << " ms" << std::endl;
+    printVector(gpuList);
+    // Check correctness
+    if (isSorted(cpuList) && isSorted(gpuList) && cpuList == gpuList) {
+        std::cout << "Counting Sort: Both CPU and GPU results are correct!" << std::endl;
+    }
+    else {
+        std::cerr << "Error: Counting Sort results do not match or are incorrect!" << std::endl;
+    }
+    printf("------------------------\n");
+}
+
+// Function to compare CPU and GPU Radix Sort
+void CompareRadixSort(const std::vector<int>& inputList) {
+    std::vector<int> cpuList = inputList;
+    std::vector<int> gpuList = inputList;
+
+    // CPU Radix Sort
+    auto startCPU = std::chrono::high_resolution_clock::now();
+    RadixSort(cpuList.size(), cpuList);
+    auto endCPU = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double, std::milli> durationCPU = endCPU - startCPU;
+
+    // GPU Radix Sort
+    
+    auto startGPU = std::chrono::high_resolution_clock::now();
+    RadixSortGPU(gpuList);
+    auto endGPU = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double, std::milli> durationGPU = endGPU - startGPU;
+
+    // Compare Results
+    std::cout << "CPU Radix Sort Time: " << durationCPU.count() << " ms" << std::endl;
+    std::cout << "GPU Radix Sort Time: " << durationGPU.count() << " ms" << std::endl;
+
+    
+
+    // Check correctness
+    if (isSorted(cpuList) && isSorted(gpuList) && cpuList == gpuList) {
+        std::cout << "Radix Sort: Both CPU and GPU results are correct!" << std::endl;
+    }
+    else {
+        std::cerr << "Error: Radix Sort results do not match or are incorrect!" << std::endl;
+    }
+    printf("------------------------\n");
+}
+
 int main() {
     // Define the size of the list and bounds
     const long int NumberOfElements = 1 << 4; // 1 million elements
     const int lowerBound = 0;
-    const int upperBound = 17; // Range of values [0, 999]
+    const int upperBound = 1000; // Range of values [0, 999]
 
     // Generate a random list of integers
     std::vector<int> randomList(NumberOfElements);
@@ -56,61 +98,13 @@ int main() {
 
     std::cout << "Sorting a list of " << NumberOfElements << " elements." << std::endl;
 
-    // CPU Counting Sort
-    printf("------------------------\n");
-    std::vector<int> countingSortList = randomList;
-    CountingSortAnalysis(countingSortList, upperBound);
+    // Compare CPU and GPU Counting Sort
+    printf("***** Comparing Counting Sort *****\n");
+    CompareCountingSort(randomList, upperBound);
 
-    // Check if the vector is sorted
-    if (isSorted(countingSortList)) 
-        std::cout << "CPU Counting Sort: Array is sorted correctly!" << std::endl;
-    
-    else 
-        std::cerr << "Error: Array not sorted correctly!" << std::endl;
-    printf("------------------------\n");
-    // GPU Counting Sort
-    printf("------------------------\n");
-    std::vector<int> countingSortGPUList = randomList;
-    CountingSortGPU(countingSortGPUList, upperBound);
-
-    // Check if the vector is sorted
-    if (isSorted(countingSortGPUList))
-        std::cout << "GPU Counting Sort: Array is sorted correctly!" << std::endl;
-
-    else
-        std::cerr << "Error: Array not sorted correctly!" << std::endl;
-
-    printf("------------------------\n");
-    // CPU Radix Sort
-    printf("------------------------\n");
-    std::vector<int> radixSortList = randomList;
-
-    RadixSortAnalysis(radixSortList);
-
-    // Check if the vector is sorted
-    if (isSorted(radixSortList))
-        std::cout << "CPU Radix Sort: Array is sorted correctly!" << std::endl;
-
-    else
-        std::cerr << "Error: Array not sorted correctly!" << std::endl;
-    printf("------------------------\n");
-    // GPU Radix Sort
-    printf("------------------------\n");
-    std::vector<int> radixSortGPUList = randomList;
-    printVector(radixSortGPUList);
-    RadixSortGPU(radixSortGPUList);
-    
-
-    // Check if the vector is sorted
-    if (isSorted(radixSortGPUList))
-        std::cout << "GPU Radix Sort: Array is sorted correctly!" << std::endl;
-
-    else
-        std::cerr << "Error: Array not sorted correctly!" << std::endl;
-
-    printf("------------------------\n");
-    printVector(radixSortGPUList);
+    // Compare CPU and GPU Radix Sort
+    //printf("***** Comparing Radix Sort *****\n");
+    //CompareRadixSort(randomList);
 
     return 0;
 }
-//printVector(const std::vector<int>& vec)
