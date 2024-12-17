@@ -128,4 +128,17 @@ void RadixSortGPU(std::vector<int>& h_input) {
         // Swap pointers to prepare for the next iteration
         std::swap(d_input, d_output);
     }
+
+    auto end = std::chrono::high_resolution_clock::now();
+
+    // Copier les résultats triés vers l'hôte
+    cudaMemcpy(h_input.data(), d_input, size * sizeof(int), cudaMemcpyDeviceToHost);
+
+    std::chrono::duration<double, std::milli> duration = end - start;
+    std::cout << "GPU Radix Sort Time: " << duration.count() << " ms" << std::endl;
+
+    // Libérer la mémoire GPU
+    cudaFree(d_input);
+    cudaFree(d_output);
+    cudaFree(d_count);
 }

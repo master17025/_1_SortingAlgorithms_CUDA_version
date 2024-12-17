@@ -68,27 +68,35 @@ __global__ void PlaceElements(const int* inputVector, int* outputVector, int* co
 
 
 // Counting Sort function using CUDA
+
+// Optimized Counting Sort function using CUDA
 void CountingSortGPU(int upperBound, const std::vector<int>& inputVector, std::vector<int>& outputVector) {
     long int NumberOfElements = inputVector.size();
     int range = upperBound + 1;
 
-    // Device pointers
-    int* d_inputVector;
-    int* d_outputVector;
-    int* d_countVector;
+    // Pre-allocate device memory
+    int* d_inputVector = nullptr;
+    int* d_outputVector = nullptr;
+    int* d_countVector = nullptr;
+    void* d_temp_storage = nullptr;
+    size_t temp_storage_bytes = 0;
 
-    // Allocate device memory
     cudaMalloc(&d_inputVector, sizeof(int) * NumberOfElements);
     cudaMalloc(&d_outputVector, sizeof(int) * NumberOfElements);
     cudaMalloc(&d_countVector, sizeof(int) * range);
 
-    // Copy input data to the device
+    // Prepare CUB temporary storage size
+    cub::DeviceScan::InclusiveSum(nullptr, temp_storage_bytes, d_countVector, d_countVector, range);
+    cudaMalloc(&d_temp_storage, temp_storage_bytes);
+
+    // Start timing **after pre-allocation**
+    auto start = std::chrono::high_resolution_clock::now();
+    // Copy input data to the device once
     cudaMemcpy(d_inputVector, inputVector.data(), sizeof(int) * NumberOfElements, cudaMemcpyHostToDevice);
 
-    // Start timing
-    auto start = std::chrono::high_resolution_clock::now();
 
-    // Step 1: Initialize count vector
+
+    // Step 1: Initialize count array to zero
     int blocksPerGridCount = (range + threadsperblock - 1) / threadsperblock;
     InitializeVector << <blocksPerGridCount, threadsperblock >> > (d_countVector, range, 0);
 
@@ -97,17 +105,9 @@ void CountingSortGPU(int upperBound, const std::vector<int>& inputVector, std::v
     CountOccurrences << <blocksPerGridInput, threadsperblock >> > (d_inputVector, d_countVector, NumberOfElements);
 
     // Step 3: Compute cumulative counts using CUB InclusiveSum
-    void* d_temp_storage = nullptr;
-    size_t temp_storage_bytes = 0;
-
-    // Get temporary storage size and allocate it
-    cub::DeviceScan::InclusiveSum(d_temp_storage, temp_storage_bytes, d_countVector, d_countVector, range);
-    cudaMalloc(&d_temp_storage, temp_storage_bytes);
-
-    // Perform cumulative sum
     cub::DeviceScan::InclusiveSum(d_temp_storage, temp_storage_bytes, d_countVector, d_countVector, range);
 
-    // Step 4: Place elements into the output vector
+    // Step 4: Place elements into the output array
     PlaceElements << <blocksPerGridInput, threadsperblock >> > (d_inputVector, d_outputVector, d_countVector, NumberOfElements);
 
     // Step 5: Copy the sorted data back to the host
@@ -119,7 +119,8 @@ void CountingSortGPU(int upperBound, const std::vector<int>& inputVector, std::v
 
     std::cout << "Time taken to sort using Counting Sort on GPU: " << duration.count() << " ms" << std::endl;
 
-    // Free device memory
+
+    // Free pre-allocated device memory
     cudaFree(d_temp_storage);
     cudaFree(d_inputVector);
     cudaFree(d_outputVector);
