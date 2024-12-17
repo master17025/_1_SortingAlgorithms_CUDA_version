@@ -43,7 +43,7 @@ int main() {
     // Generate random array on GPU
     int* h_randomList = CreateRandomArray(NumberOfElements, lowerBound, upperBound);
 
-    RadixSortGPU(h_randomList, NumberOfElements);
+    CountingSortAnalysis(h_randomList, lowerBound, upperBound, NumberOfElements);
 
     // Assertion to verify the array is sorted
     for (long int i = 1; i < NumberOfElements; ++i) {
