@@ -52,34 +52,6 @@ __global__ void countKernel(const int* inputVector, int* countArray, long int Nu
 }
 
 
-__global__ void CumulativeSum(int* inputVector, int NumberOfElements)
-{
-
-
-    // Calculate global thread ID
-    int tx = threadIdx.x; // Thread id in a 1D block
-    int ty = blockIdx.x;  // Block id in a 1D grid
-    int bw = blockDim.x; // Block width
-
-    int tid = tx + ty * bw;
-
-
-
-    int offset = 1;
-
-    for (int off = 1; off < NumberOfElements; off *= 2)
-    {
-        if (tid > off)
-            inputVector[tid - 1] += inputVector[tid - off - 1];
-
-        __syncthreads();
-    }
-
-     
-}
-
-
-
 __global__ void placeKernel(const int* inputVector, int* countArray, int* outputArray, long int NumberOfElements) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     if (idx < NumberOfElements) {
@@ -99,14 +71,17 @@ std::chrono::duration<double, std::milli> CountingSortGPU(std::vector<int>& h_in
     cudaMalloc(&d_input, size * sizeof(int));
     cudaMalloc(&d_output, size * sizeof(int));
     cudaMalloc(&d_count, range * sizeof(int));
+    thrust::device_ptr<int> thrust_countArray(d_count);
 
     // Initialize count array to zero
     cudaMemset(d_count, 0, range * sizeof(int));
 
+    auto start = std::chrono::high_resolution_clock::now();
+
     // Copy the input vector to the GPU
     cudaMemcpy(d_input, h_input.data(), size * sizeof(int), cudaMemcpyHostToDevice);
 
-    auto start = std::chrono::high_resolution_clock::now();
+    
 
     // Step 1: Count occurrences of each element
     int blocks = (size + THREADS_PER_BLOCK - 1) / THREADS_PER_BLOCK;
@@ -114,18 +89,19 @@ std::chrono::duration<double, std::milli> CountingSortGPU(std::vector<int>& h_in
     cudaDeviceSynchronize();
 
     // Step 2: Compute cumulative sums using custom kernel
-    int sharedMemSize = range * sizeof(int); // Shared memory size
-    CumulativeSum << <blocks, THREADS_PER_BLOCK >> > (d_count, range);
+        // Perform prefix sum using Thrust
+    
+    thrust::inclusive_scan(thrust_countArray, thrust_countArray + range, thrust_countArray);
     cudaDeviceSynchronize();
 
     // Step 3: Place elements into the output array
     placeKernel << <blocks, THREADS_PER_BLOCK >> > (d_input, d_count, d_output, size);
     cudaDeviceSynchronize();
 
-    auto end = std::chrono::high_resolution_clock::now();
-
+    
     // Copy sorted data back to the host
     cudaMemcpy(h_input.data(), d_output, size * sizeof(int), cudaMemcpyDeviceToHost);
+    auto end = std::chrono::high_resolution_clock::now();
 
     std::chrono::duration<double, std::milli> duration = end - start;
 
@@ -136,3 +112,4 @@ std::chrono::duration<double, std::milli> CountingSortGPU(std::vector<int>& h_in
 
     return duration;
 }
+

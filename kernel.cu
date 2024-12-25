@@ -32,14 +32,14 @@ void CompareCountingSort(const std::vector<int>& inputList, int upperBound) {
     std::chrono::duration<double, std::milli> durationCPU = endCPU - startCPU;
 
     // GPU Counting Sort
-    printVector(gpuList);
+    //printVector(gpuList);
     std::chrono::duration<double, std::milli> durationGPU  = CountingSortGPU(gpuList, upperBound);
 
 
     // Compare Results
     std::cout << "CPU Counting Sort Time: " << durationCPU.count() << " ms" << std::endl;
     std::cout << "GPU Counting Sort Time: " << durationGPU.count() << " ms" << std::endl;
-    printVector(gpuList);
+    //printVector(gpuList);
     // Check correctness
     if (isSorted(cpuList) && isSorted(gpuList) && cpuList == gpuList) {
         std::cout << "Counting Sort: Both CPU and GPU results are correct!" << std::endl;
@@ -59,15 +59,13 @@ void CompareRadixSort(const std::vector<int>& inputList) {
     auto startCPU = std::chrono::high_resolution_clock::now();
     RadixSort(cpuList.size(), cpuList);
     auto endCPU = std::chrono::high_resolution_clock::now();
+    printVector(cpuList);
     std::chrono::duration<double, std::milli> durationCPU = endCPU - startCPU;
 
     // GPU Radix Sort
-    
-    auto startGPU = std::chrono::high_resolution_clock::now();
-    RadixSortGPU(gpuList);
-    auto endGPU = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double, std::milli> durationGPU = endGPU - startGPU;
-
+    //printVector(gpuList);
+    std::chrono::duration<double, std::milli> durationGPU  = RadixSortGPU(gpuList);
+    printVector(gpuList);
     // Compare Results
     std::cout << "CPU Radix Sort Time: " << durationCPU.count() << " ms" << std::endl;
     std::cout << "GPU Radix Sort Time: " << durationGPU.count() << " ms" << std::endl;
@@ -86,7 +84,7 @@ void CompareRadixSort(const std::vector<int>& inputList) {
 
 int main() {
     // Define the size of the list and bounds
-    const long int NumberOfElements = 1 << 4; // 1 million elements
+    const long int NumberOfElements = 1 << 6; // 1 million elements
     const int lowerBound = 0;
     const int upperBound = 1000; // Range of values [0, 999]
 
@@ -103,8 +101,8 @@ int main() {
     CompareCountingSort(randomList, upperBound);
 
     // Compare CPU and GPU Radix Sort
-    //printf("***** Comparing Radix Sort *****\n");
-    //CompareRadixSort(randomList);
+    printf("***** Comparing Radix Sort *****\n");
+    CompareRadixSort(randomList);
 
     return 0;
 }
