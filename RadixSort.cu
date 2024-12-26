@@ -63,9 +63,10 @@ std::chrono::duration<double, std::milli> mergeSortGPU(std::vector<int>& arr) {
 
     auto start = std::chrono::high_resolution_clock::now();
     thrust::sort(d_arr.begin(), d_arr.end());
+    auto end = std::chrono::high_resolution_clock::now();
     thrust::copy(d_arr.begin(), d_arr.end(), arr.begin());
 
-    auto end = std::chrono::high_resolution_clock::now();
+    
 
     std::chrono::duration<double, std::milli> duration = end - start;
     return duration;

@@ -76,13 +76,13 @@ std::chrono::duration<double, std::milli> CountingSortGPU(std::vector<int>& h_in
     // Initialize count array to zero
     cudaMemset(d_count, 0, range * sizeof(int));
 
-    auto start = std::chrono::high_resolution_clock::now();
+    
 
     // Copy the input vector to the GPU
     cudaMemcpy(d_input, h_input.data(), size * sizeof(int), cudaMemcpyHostToDevice);
 
     
-
+    auto start = std::chrono::high_resolution_clock::now();
     // Step 1: Count occurrences of each element
     int blocks = (size + THREADS_PER_BLOCK - 1) / THREADS_PER_BLOCK;
     countKernel << <blocks, THREADS_PER_BLOCK >> > (d_input, d_count, size);
@@ -97,11 +97,11 @@ std::chrono::duration<double, std::milli> CountingSortGPU(std::vector<int>& h_in
     // Step 3: Place elements into the output array
     placeKernel << <blocks, THREADS_PER_BLOCK >> > (d_input, d_count, d_output, size);
     cudaDeviceSynchronize();
-
+    auto end = std::chrono::high_resolution_clock::now();
     
     // Copy sorted data back to the host
     cudaMemcpy(h_input.data(), d_output, size * sizeof(int), cudaMemcpyDeviceToHost);
-    auto end = std::chrono::high_resolution_clock::now();
+    
 
     std::chrono::duration<double, std::milli> duration = end - start;
 
