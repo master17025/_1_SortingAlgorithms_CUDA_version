@@ -35,7 +35,7 @@ void CompareCountingSort(const std::vector<int>& inputList, int upperBound) {
     // GPU Counting Sort
     //printVector(gpuList);
     std::chrono::duration<double, std::milli> durationGPU  = CountingSortGPU(gpuList, upperBound);
-
+    printVector(gpuList);
 
     // Compare Results
     std::cout << "CPU Counting Sort Time: " << durationCPU.count() << " ms" << std::endl;
@@ -65,6 +65,7 @@ void CompareMergeSort(const std::vector<int>& inputList) {
 
     // GPU Merge Sort
     std::chrono::duration<double, std::milli> durationGPU = mergeSortGPU(gpuList);
+    printVector(gpuList);
 
     // Compare Results
     std::cout << "CPU Merge Sort Time: " << durationCPU.count() << " ms" << std::endl;
@@ -83,7 +84,7 @@ void CompareMergeSort(const std::vector<int>& inputList) {
 
 int main() {
     // Define the size of the list and bounds
-    const long int NumberOfElements = 1 << 26; 
+    const long int NumberOfElements = 1 << 4; 
     const int lowerBound = 0;
     const int upperBound = 100; 
 
@@ -94,7 +95,7 @@ int main() {
     }
 
     std::cout << "Sorting a list of " << NumberOfElements << " elements." << std::endl;
-
+    printVector(randomList);
     // Compare CPU and GPU Counting Sort
     printf("***** Comparing Counting Sort *****\n");
     CompareCountingSort(randomList, upperBound);
