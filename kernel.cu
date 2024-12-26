@@ -20,6 +20,7 @@ bool isSorted(const std::vector<int>& vec) {
     return true; // The vector is sorted
 }
 
+
 // Function to compare CPU and GPU Counting Sort
 void CompareCountingSort(const std::vector<int>& inputList, int upperBound) {
     std::vector<int> cpuList = inputList;
@@ -50,43 +51,41 @@ void CompareCountingSort(const std::vector<int>& inputList, int upperBound) {
     printf("------------------------\n");
 }
 
-// Function to compare CPU and GPU Radix Sort
-void CompareRadixSort(const std::vector<int>& inputList) {
+
+// Function to compare CPU and GPU Merge Sort
+void CompareMergeSort(const std::vector<int>& inputList) {
     std::vector<int> cpuList = inputList;
     std::vector<int> gpuList = inputList;
 
-    // CPU Radix Sort
+    // CPU Merge Sort
     auto startCPU = std::chrono::high_resolution_clock::now();
-    RadixSort(cpuList.size(), cpuList);
+    mergeSortCPU(cpuList, 0, cpuList.size() - 1);
     auto endCPU = std::chrono::high_resolution_clock::now();
-    printVector(cpuList);
     std::chrono::duration<double, std::milli> durationCPU = endCPU - startCPU;
 
-    // GPU Radix Sort
-    //printVector(gpuList);
-    std::chrono::duration<double, std::milli> durationGPU  = RadixSortGPU(gpuList);
-    printVector(gpuList);
-    // Compare Results
-    std::cout << "CPU Radix Sort Time: " << durationCPU.count() << " ms" << std::endl;
-    std::cout << "GPU Radix Sort Time: " << durationGPU.count() << " ms" << std::endl;
+    // GPU Merge Sort
+    std::chrono::duration<double, std::milli> durationGPU = mergeSortGPU(gpuList);
 
-    
+    // Compare Results
+    std::cout << "CPU Merge Sort Time: " << durationCPU.count() << " ms" << std::endl;
+    std::cout << "GPU Merge Sort Time: " << durationGPU.count() << " ms" << std::endl;
 
     // Check correctness
     if (isSorted(cpuList) && isSorted(gpuList) && cpuList == gpuList) {
-        std::cout << "Radix Sort: Both CPU and GPU results are correct!" << std::endl;
+        std::cout << "Merge Sort: Both CPU and GPU results are correct!" << std::endl;
     }
     else {
-        std::cerr << "Error: Radix Sort results do not match or are incorrect!" << std::endl;
+        std::cerr << "Error: Merge Sort results do not match or are incorrect!" << std::endl;
     }
     printf("------------------------\n");
 }
 
+
 int main() {
     // Define the size of the list and bounds
-    const long int NumberOfElements = 1 << 6; // 1 million elements
+    const long int NumberOfElements = 1 << 26; 
     const int lowerBound = 0;
-    const int upperBound = 1000; // Range of values [0, 999]
+    const int upperBound = 100; 
 
     // Generate a random list of integers
     std::vector<int> randomList(NumberOfElements);
@@ -100,9 +99,9 @@ int main() {
     printf("***** Comparing Counting Sort *****\n");
     CompareCountingSort(randomList, upperBound);
 
-    // Compare CPU and GPU Radix Sort
-    printf("***** Comparing Radix Sort *****\n");
-    CompareRadixSort(randomList);
+    // Compare CPU and GPU Merge Sort
+    printf("***** Comparing Merge Sort *****\n");
+    CompareMergeSort(randomList);
 
     return 0;
 }
